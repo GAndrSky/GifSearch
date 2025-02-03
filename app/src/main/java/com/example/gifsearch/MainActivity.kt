@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import adapter.GifAdapter
 import network.RetrofitClient
 import repository.GiphyRepository
@@ -22,6 +24,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var viewModel: SearchViewModel
     private lateinit var adapter: GifAdapter
+    private lateinit var randomGifImageView: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,20 +33,18 @@ class MainActivity : AppCompatActivity() {
         val searchEditText = findViewById<EditText>(R.id.searchEditText)
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
         val progressBar = findViewById<ProgressBar>(R.id.progressBar)
+        randomGifImageView = findViewById(R.id.randomGifImageView)
 
-        // Настройка RecyclerView в виде grid (2 колонки в портретном режиме, 3 в ландшафтном)
         val spanCount = if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) 2 else 3
         recyclerView.layoutManager = GridLayoutManager(this, spanCount)
 
         adapter = GifAdapter { gif ->
-            // По клику на элемент открываем DetailActivity
             val intent = Intent(this, DetailActivity::class.java)
             intent.putExtra("gif_url", gif.images.original.url)
             startActivity(intent)
         }
         recyclerView.adapter = adapter
 
-        // Инициализация ViewModel с использованием репозитория
         val repository = GiphyRepository(RetrofitClient.api)
         viewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -52,24 +53,30 @@ class MainActivity : AppCompatActivity() {
             }
         }).get(SearchViewModel::class.java)
 
-        // Наблюдаем за данными GIF
         viewModel.gifs.observe(this) { gifs ->
             adapter.submitList(gifs)
         }
 
-        // Наблюдаем за состоянием загрузки
         viewModel.isLoading.observe(this) { isLoading ->
             progressBar.visibility = if (isLoading) android.view.View.VISIBLE else android.view.View.GONE
         }
 
-        // Наблюдаем за ошибками
         viewModel.errorMessage.observe(this) { message ->
             message?.let {
                 Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Отслеживание ввода в поле поиска с помощью TextWatcher
+        viewModel.randomGif.observe(this) { randomGif ->
+            randomGif?.let {
+                Glide.with(this)
+                    .load(it.images.original.url)
+                    .into(randomGifImageView)
+            }
+        }
+
+        viewModel.loadRandomGif()
+
         searchEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 viewModel.onQueryChanged(s.toString())
@@ -78,7 +85,6 @@ class MainActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        // Пагинация: подгрузка следующей страницы при скролле
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(rv, dx, dy)

@@ -1,5 +1,6 @@
 package network
 
+import models.RandomGifResponse
 import models.GiphyResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -14,4 +15,11 @@ interface GiphyApi {
         @Query("rating") rating: String = "g",
         @Query("lang") lang: String = "en"
     ): GiphyResponse
+
+    @GET("v1/gifs/random")
+    suspend fun getRandomGif(
+        @Query("api_key") apiKey: String,
+        @Query("tag") tag: String = "",
+        @Query("rating") rating: String = "g"
+    ): RandomGifResponse
 }

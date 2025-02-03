@@ -2,6 +2,7 @@ package viewmodel
 
 import androidx.lifecycle.*
 import models.Gif
+import models.RandomGifData
 import repository.GiphyRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
@@ -10,27 +11,22 @@ import kotlinx.coroutines.launch
 
 class SearchViewModel(private val repository: GiphyRepository) : ViewModel() {
 
-    // Поток для ввода поискового запроса
     private val _query = MutableStateFlow("")
     val query = _query
 
-    // LiveData для списка GIF
     private val _gifs = MutableLiveData<List<Gif>>(emptyList())
     val gifs: LiveData<List<Gif>> = _gifs
 
-    // LiveData для состояния загрузки и ошибок
     private val _isLoading = MutableLiveData(false)
     val isLoading: LiveData<Boolean> = _isLoading
 
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
 
-    // Параметры пагинации
     private var currentOffset = 0
     private var currentQuery = ""
 
     init {
-        // Обработка автопоиска с debounce (задержка 500 мс)
         viewModelScope.launch {
             _query
                 .debounce(500)
@@ -41,7 +37,6 @@ class SearchViewModel(private val repository: GiphyRepository) : ViewModel() {
                         currentOffset = 0
                         loadGifs(newQuery, currentOffset, reset = true)
                     } else {
-                        // Если поле пустое, очищаем список
                         _gifs.postValue(emptyList())
                     }
                 }
@@ -74,9 +69,23 @@ class SearchViewModel(private val repository: GiphyRepository) : ViewModel() {
                     _gifs.value = currentList
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Ошибка загрузки данных: ${e.message}"
+                _errorMessage.value = "Data error: ${e.message}"
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    private val _randomGif = MutableLiveData<RandomGifData?>()
+    val randomGif: LiveData<RandomGifData?> = _randomGif
+
+    fun loadRandomGif() {
+        viewModelScope.launch {
+            try {
+                val response = repository.getRandomGif()
+                _randomGif.value = response.data
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
             }
         }
     }
